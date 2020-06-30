@@ -1,32 +1,173 @@
 var cols, rows,cnv;
-var maps = [];
-var current; 
-var backtrackStack = [];
-var button,greeting,btnSubmit,btnStop,fps,score,fail;
-var openSet = [];
+var environments = [];
+var button,greeting,btnSubmit,btnStop,fps,score,fail,episode,info;
+var state; 
 var Qtable = [];
-var start,end;
+var start,end,action;
 var roboto;
-var frate,scoreNum,failNum,totalReward;
+var frate,scoreNum,failNum,episodeNum,totalReward,numState;
+
+var maxStep;
+var episodes;
+const ACTION = {
+  UP:0,
+  DOWN:1,
+  LEFT:2,
+  RIGHT:3
+}; 
 var config = {
-  mazeSize : 1270,
+  environmentSize : 1270,
   w:60,
   offset:730,
   lineStroke:6,
   allowSolve : false,
   moreSolution:false,
   isShowCoordinate:true,
-  speed : 20,
+  speed : 1,
   loop : true,
+  max_step :200,
+  totalEpisode:200,
+  epsilon:1,
+  max_epsilon : 1.0 ,
+  min_epsilon : 0.01,
+  learningRate:0.7,
+  discountRate : 0.99
   
 }
 function preload() {
   roboto = loadFont('assets/RobotoMono-Light.ttf');
 }
 function setup() {
-  cnv = createCanvas(config.mazeSize, config.mazeSize);
-  cnv.mouseClicked(setCell);
+
+  cnv = createCanvas(config.environmentSize, config.environmentSize);
   textFont(roboto);
+  setUpComponent();
+  frameRate(config.speed);
+  textAlign(CENTER);
+
+  totalReward = 0;
+  numState= 0;
+  cols = rows = mazeData.length;
+  maxStep = config.max_step;
+  episodes = config.totalEpisode;
+
+  // init Q-table
+  // (cols * rows) states
+  // 4 action (up,down,right,left)
+
+  
+  
+  for (let x= 0; x < cols; x++) {
+    environments[x] = new Array(rows);
+    
+  }
+  for(let i = 0;i<cols;i++){
+    for(let j=0;j<rows;j++){
+      var data = mazeData[i][j];
+      if(!data.isObstacle){
+        numState++;
+      }
+      environments[i][j] = new Cell(i,j,data.reward,data.isObstacle);
+    }
+  }
+  for (let x= 0; x < numState ; x++) {
+    Qtable[x] = new Array(4);
+  }
+  for(let i = 0;i<numState;i++){
+    for(let j=0;j<4;j++){
+      Qtable[i][j] = 0;
+    }
+  }
+  console.table(Qtable);
+
+  start = environments[1][0];
+  end = environments[7][8];
+  end.reward = 100;
+  state = start;
+}
+
+function draw() {
+
+    episodes --;
+    maxStep --;
+   
+    if(episode==0){
+      noLoop();
+      // save Qtable
+    }
+    if(maxStep==0){
+      maxStep = config.max_step;
+      failNum++;
+      state = start;
+      totalReward=0;
+    }
+    background(51);
+    frate = frameRate();
+    fps.html('Fps : ' + parseInt(frate) + "s");
+    score.html('Score : ' + scoreNum);
+    fail.html('Fail : ' + failNum);
+    episodeNum = scoreNum+failNum;
+    episode.html('Episode : ' + episodeNum);
+    for(let i = 0;i<cols;i++){
+      for(let j=0;j<rows;j++){
+
+          environments[i][j].show(config.isShowCoordinate);
+          
+      }
+    }
+    info.html(`State : ${numState}  \nAction: 4 (up,down,left,right)`);
+    
+    let exploration_exploitation_trade_off =random(0, 1);
+    // greedy epislon
+    if (exploration_exploitation_trade_off > config.epsilon){
+      
+      var max = Math.max(...Qtable[state.i * state.j]);
+      //will return 0,1,2 or 3
+      action = Qtable[state.i * state.j].indexOf(max);  // Exploit learned values
+      //console.log("Action exploit:" + action);
+    }
+    else{
+      action = state.explore(environments); // Randomly pick an action
+      if(action==-1){
+        reset();
+      }
+     // console.log("Action explore:" + action);
+    }
+    // take action (a) and observe the outcome stats(s') get the reward (r)
+    var nextState  = utils.getNextState(state,action,environments);
+    //console.log(nextState);
+    if(nextState==undefined){
+      reset();
+    }
+    else{
+    // update the q_table using Bellman equation
+    // using Q(s,a) = Q(s,a) + learningRate * [R(s,a) + gamma * maxQ(s',a') - Q(s,a)]
+    let next_max = Math.max(...Qtable[nextState.i * nextState.j]);
+    let new_value = (1 - config.learningRate) * Qtable[state.i * state.j][action] + config.learningRate * (nextState.reward + config.discountRate * next_max);
+    Qtable[state.i * state.j][action] = new_value;
+
+    state= nextState;
+   
+    state.highLight(color(0,255,0),config.offset,config.isShowCoordinate,true);
+    }
+}
+function hideCoordinate(){
+  config.isShowCoordinate = !config.isShowCoordinate;
+}
+function changeSpeed(){
+  frameRate(parseInt(input.value()));
+  setFrameRate(parseInt(input.value()));
+}
+function stopLoop(){
+  config.loop = ! config.loop;
+  if(config.loop){
+    loop();
+  }
+  else{
+    noLoop();
+  }
+}
+function setUpComponent(){
   button = createButton('Toggle coordinates');
   button.style('font-family',"RobotoMono-Light");
   button.style('padding', '5px');
@@ -51,22 +192,39 @@ function setup() {
   fps.style('font-size', '15px');
   fps.style('font-family',"RobotoMono-Light");
   fps.style('color', '#fff');
-  fps.position(config.mazeSize-300, 19);
+  fps.position(config.environmentSize-300, 19);
 
+
+  info = createElement('pre', 'State');
+  info.style('font-size', '15px');
+  info.style('font-family',"RobotoMono-Light");
+  info.style('color', '#fff');
+  info.position(config.environmentSize-820, 19);
+
+
+
+  episodeNum =0;
+  episode = createElement('h5', 'Episode : 0');
+  episode.style('font-size', '15px');
+  episode.style('font-family',"RobotoMono-Light");
+  episode.style('color', '#fff');
+  episode.position(config.environmentSize-300, 39);
 
   scoreNum =0;
   score = createElement('h5', 'Score : 0');
   score.style('font-size', '15px');
   score.style('font-family',"RobotoMono-Light");
   score.style('color', '#fff');
-  score.position(config.mazeSize-300, 39);
+  score.position(config.environmentSize-300, 59);
 
   failNum =0;
   fail = createElement('h5', 'Fail : 0');
   fail.style('font-size', '15px');
   fail.style('font-family',"RobotoMono-Light");
   fail.style('color', '#fff');
-  fail.position(config.mazeSize-300, 59);
+  fail.position(config.environmentSize-300, 79);
+
+  
 
   btnSubmit = createButton('Submit');
   btnSubmit.style('font-family',"RobotoMono-Light");
@@ -79,109 +237,9 @@ function setup() {
   btnStop.style('font-family',"RobotoMono-Light");
   btnStop.position(19, 140);
   btnStop.mousePressed(stopLoop);
-  frameRate(config.speed);
-
-  textAlign(CENTER);
-
-  totalReward = 0;
-  cols = rows = mazeData.length;
-  // init Q-table
-  // (cols * rows) states
-  // 4 action (up,down,right,left)
-  for (let x= 0; x < cols * rows ; x++) {
-    Qtable[x] = new Array(4);
-  }
-  for(let i = 0;i<cols * rows;i++){
-    for(let j=0;j<4;j++){
-      Qtable[i][j] = 0;
-    }
-  }
-  console.table(Qtable);
-  for (let x= 0; x < cols; x++) {
-    maps[x] = new Array(rows);
-    
-  }
-  for(let i = 0;i<cols;i++){
-    for(let j=0;j<rows;j++){
-      var data = mazeData[i][j];
-      maps[i][j] = new Cell(i,j,data.reward,data.isObstacle);
-    }
-  }
-  start = maps[1][0];
-  end = maps[7][8];
-  end.reward = 100;
-  current = start;
 }
-
-function draw() {
-    
-    background(51);
-    frate = frameRate();
-    fps.html('Fps : ' + parseInt(frate) + "s");
-    score.html('Score : ' + scoreNum);
-    fail.html('Fail : ' + failNum);
-    for(let i = 0;i<cols;i++){
-      for(let j=0;j<rows;j++){
-          maps[i][j].show(config.isShowCoordinate);
-      }
-    }
-    
-    
-    if(current==undefined){
-      failNum++;
-      current = start;
-      totalReward = 0;
-    }
-    var nextActions = current.getNextActions(maps);
-    if(nextActions.length==0){
-      failNum++;
-      current = start;
-      totalReward = 0;
-    }
-    nextActions.forEach(n => {
-      n.highLight(color(0,0,255),config.offset);
-    });
-    var r = floor(random(0, nextActions.length));
-    var next = nextActions[r];
-    current.highLight(color(0,255,0),config.offset,config.isShowCoordinate,true);
-    //console.log(next);
-    if(next){
-      current = next;
-      if(current==start){
-        failNum++;
-        totalReward = 0;
-      }
-      else{
-        totalReward +=current.reward;
-        console.log(totalReward);
-      }
-    }
-    else{
-      failNum++;
-      current = start;
-      totalReward = 0;
-    }
-    if(current==end){
-      current = start;
-      totalReward = 0;
-      scoreNum++;
-    }
-}
-function hideCoordinate(){
-  config.isShowCoordinate = !config.isShowCoordinate;
-}
-function changeSpeed(){
-  frameRate(parseInt(input.value()));
-  setFrameRate(parseInt(input.value()));
-}
-function stopLoop(){
-  config.loop = ! config.loop;
-  if(config.loop){
-    loop();
-  }
-  else{
-    noLoop();
-  }
-}
-function setCell(){
+function reset(){
+    failNum++;
+    state = start;
+    totalReward = 0;
 }

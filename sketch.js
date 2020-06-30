@@ -1,28 +1,31 @@
-var cols, rows;
+var cols, rows,cnv;
 var maps = [];
 var current; 
 var backtrackStack = [];
 var button,greeting,btnSubmit,btnStop,fps,score,fail;
 var openSet = [];
+var Qtable = [];
 var start,end;
 var roboto;
-var frate,scoreNum,failNum;
+var frate,scoreNum,failNum,totalReward;
 var config = {
   mazeSize : 1270,
   w:60,
-  offset:910,
+  offset:730,
   lineStroke:6,
   allowSolve : false,
   moreSolution:false,
   isShowCoordinate:true,
   speed : 20,
-  loop : true
+  loop : true,
+  
 }
 function preload() {
   roboto = loadFont('assets/RobotoMono-Light.ttf');
 }
 function setup() {
-  createCanvas(config.mazeSize, config.mazeSize);
+  cnv = createCanvas(config.mazeSize, config.mazeSize);
+  cnv.mouseClicked(setCell);
   textFont(roboto);
   button = createButton('Toggle coordinates');
   button.style('font-family',"RobotoMono-Light");
@@ -80,19 +83,33 @@ function setup() {
 
   textAlign(CENTER);
 
-
+  totalReward = 0;
   cols = rows = mazeData.length;
+  // init Q-table
+  // (cols * rows) states
+  // 4 action (up,down,right,left)
+  for (let x= 0; x < cols * rows ; x++) {
+    Qtable[x] = new Array(4);
+  }
+  for(let i = 0;i<cols * rows;i++){
+    for(let j=0;j<4;j++){
+      Qtable[i][j] = 0;
+    }
+  }
+  console.table(Qtable);
   for (let x= 0; x < cols; x++) {
     maps[x] = new Array(rows);
+    
   }
   for(let i = 0;i<cols;i++){
     for(let j=0;j<rows;j++){
       var data = mazeData[i][j];
-      maps[i][j] = new Cell(i,j,data.visited,data.walls);
+      maps[i][j] = new Cell(i,j,data.reward,data.isObstacle);
     }
   }
-  start = maps[0][0];
-  end = maps[0][cols-1];
+  start = maps[1][0];
+  end = maps[7][8];
+  end.reward = 100;
   current = start;
 }
 
@@ -109,14 +126,17 @@ function draw() {
       }
     }
     
-    var nextActions = utils.getNextActions(maps,current);
+    
     if(current==undefined){
       failNum++;
       current = start;
+      totalReward = 0;
     }
+    var nextActions = current.getNextActions(maps);
     if(nextActions.length==0){
       failNum++;
       current = start;
+      totalReward = 0;
     }
     nextActions.forEach(n => {
       n.highLight(color(0,0,255),config.offset);
@@ -129,14 +149,21 @@ function draw() {
       current = next;
       if(current==start){
         failNum++;
+        totalReward = 0;
+      }
+      else{
+        totalReward +=current.reward;
+        console.log(totalReward);
       }
     }
     else{
-      next = nextActions[abs(r-1)];
-      current = next;
+      failNum++;
+      current = start;
+      totalReward = 0;
     }
     if(current==end){
       current = start;
+      totalReward = 0;
       scoreNum++;
     }
 }
@@ -155,4 +182,6 @@ function stopLoop(){
   else{
     noLoop();
   }
+}
+function setCell(){
 }

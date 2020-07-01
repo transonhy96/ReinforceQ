@@ -1,7 +1,7 @@
 var cols, rows,cnv;
-var environments = [];
+var environments = {};
 var button,greeting,btnSubmit,btnStop,fps,score,fail,episode,info;
-var state; 
+var state,previousAction; 
 var Qtable = {};
 var start,end,action;
 var roboto;
@@ -23,19 +23,24 @@ var config = {
   allowSolve : false,
   moreSolution:false,
   isShowCoordinate:true,
-  speed : 1,
+  speed : 60,
   loop : true,
-  max_step :200,
+  desireStep :15,
+  max_step :100,
   totalEpisode:300,
   epsilon:1,
   max_epsilon : 1.0 ,
   min_epsilon : 0.01,
   learningRate:0.7,
-  discountRate : 0.99
+  discountRate : 0.99,
+  decayRate :0.01   
   
 }
 function preload() {
   roboto = loadFont('assets/RobotoMono-Light.ttf');
+  if(!config.loop){
+    noLoop();
+  }
 }
 function setup() {
 
@@ -51,11 +56,8 @@ function setup() {
   maxStep = config.max_step;
   episodes = config.totalEpisode;
 
-  
-  for (let x= 0; x < cols; x++) {
-    environments[x] = new Array(rows);
-    
-  }
+  epsilon = config.epsilon;
+  decay_rate = config.decayRate;
   for(let i = 0;i<cols;i++){
     for(let j=0;j<rows;j++){
       var data = mazeData[i][j];
@@ -65,23 +67,28 @@ function setup() {
         var q = new Q(i,j);
         Qtable[i+'x'+j] = q;
       }
-      environments[i][j] = cell;
+      environments[i+'x'+j] = cell;
     }
   }
   console.table(Qtable);
-
-  start = environments[1][0];
-  end = environments[7][8];
+  previousAction = "";
+  start = environments['1x0'];
+  end = environments['7x8'];
+  start.reward =-100;
+  start.highLight(color(0,255,0),config.offset,config.isShowCoordinate,true);
   end.reward = 100;
   state = start;
-  state.highLight(color(0,255,0),config.offset,config.isShowCoordinate,true);
+  
+  if(!config.loop){
+    noLoop();
+  }
 }
 
 function draw() {
-
+    
     episodes --;
     maxStep --;
-   
+    
     // if(episodes==0){
     //   noLoop();
     //   // save Qtable
@@ -101,46 +108,63 @@ function draw() {
     episode.html('Episode : ' + episodeNum);
     for(let i = 0;i<cols;i++){
       for(let j=0;j<rows;j++){
-          environments[i][j].show(config.isShowCoordinate);
+          environments[i+'x'+j].show(config.isShowCoordinate);
       }
     }
     info.html(`State : ${numState}  \nAction: 4 (up,down,left,right)`);
-    
     let exploration_exploitation_trade_off = random(0, 1);
-    // greedy epislon
-    if (exploration_exploitation_trade_off > config.epsilon){
-      action = Qtable[state.i +'x'+ state.j].getAction();  // Exploit learned values
-      console.log("action:" + action);
-      //console.log("Action exploit:" + action);
-    }
-    else{
-      action = state.explore(environments); // Randomly pick an action
-      if(action==-1){
+      console.log(exploration_exploitation_trade_off);
+      console.log(epsilon);
+      // greedy epislon
+      if (exploration_exploitation_trade_off >= epsilon){
+        action = Qtable[state.i +'x'+ state.j].getAction(state,environments);  // Exploit learned values
+        console.log("Exploit action:" + action);
+        //console.log("Action exploit:" + action);
+      }
+      else{
+        action = state.explore(previousAction,environments); // Randomly pick an action
+        console.log("Explore action:" + action);
+      // console.log("Action explore:" + action);
+      }
+
+      //console.log(`(${state.i},${state.j})`);
+      
+      // take action (a) and observe the outcome stats(s') get the reward (r)
+      var nextState  = state.takeStep(action,environments);
+      console.log(state);
+      console.log(action);
+      console.log(nextState);
+      if(nextState==undefined){
         reset();
       }
-     // console.log("Action explore:" + action);
+      else{
+      // update the q_table using Bellman equation
+      // using Q(s,a) = Q(s,a) + learningRate * [R(s,a) + gamma * maxQ(s',a') - Q(s,a)]
+      let next_max = Qtable[nextState.i +'x'+ nextState.j].max();
+      let new_value = (1 - config.learningRate) * Qtable[state.i +'x'+ state.j][action] + config.learningRate * (nextState.reward + config.discountRate * next_max);
+      //console.log(new_value);
+      Qtable[state.i +'x'+ state.j][action] = new_value;
+      nextState.addTrail(state);
+      state = nextState;
+      //previousAction = action;
+      console.log(state.trails);
+      //console.log(previousAction);
+      state.highLight(color(0,255,0),config.offset,config.isShowCoordinate,true);
+      epsilon  = config.min_epsilon + (config.max_epsilon - config.min_epsilon)* exp(-decay_rate * episodeNum)
+      if(state == end){
+        if(maxStep == config.desireStep){
+          console.log(maxStep);
+          noLoop();
+          console.log("Found solution!");
+          alert("Found solution!");
+          saveJSON(Qtable, "Qtable.json");
+        }
+        scoreNum++;
+        state = start;
+      }
+      
     }
-
-    console.log(`(${state.i},${state.j})`);
-    console.log(action);
-    // take action (a) and observe the outcome stats(s') get the reward (r)
-    var nextState  = state.takeStep(action,environments);
-    //console.log(nextState);
-    if(nextState==undefined){
-      reset();
-    }
-    else{
-    // update the q_table using Bellman equation
-    // using Q(s,a) = Q(s,a) + learningRate * [R(s,a) + gamma * maxQ(s',a') - Q(s,a)]
-    let next_max = Qtable[nextState.i +'x'+ nextState.j].max();
-    let new_value = (1 - config.learningRate) * Qtable[state.i +'x'+ state.j][action] + config.learningRate * (nextState.reward + config.discountRate * next_max);
-    console.log(new_value);
-    Qtable[state.i +'x'+ state.j][action] = new_value;
-
-    state = nextState;
-   
-    state.highLight(color(0,255,0),config.offset,config.isShowCoordinate,true);
-    }
+    
 }
 function hideCoordinate(){
   config.isShowCoordinate = !config.isShowCoordinate;

@@ -5,10 +5,8 @@ class Cell {
       this.reward = _reward;
       this.isObstacle = _isObstacle;
       this.visited = false;
-      this.up = 0;
-      this.down = 0;
-      this.left = 0;
-      this.right = 0;
+      this.trails = [];
+      this.previousAction ="";
     }
     highLight(color,isShowCoordinate=true, isCurrent=false){
   
@@ -29,40 +27,42 @@ class Cell {
       }
   
     }
-    explore(environment){
+    explore(previousAction,environment){
       var i = this.i;
       var j = this.j;
       var actions = [];
-      if(i < cols -1 )
+      if(j > 0)
       {
-          var top  = environment[i+1][j];
-          if(!top.isObstacle){
+          var top  = environment[i+'x'+(j-1)];
+          if(!top.isObstacle && previousAction !=ACTION.DOWN){
             actions.push(ACTION.UP);
           }
       }
-      if(i > 0)
+      if(j < rows - 1)
       {
-         var right = environment[i-1][j];
-         if(!right.isObstacle ){
-          actions.push(ACTION.RIGHT);
-         }
-      }
-      if(j < rows -1)
-      {
-        var bottom = environment[i][j+1];
-        if(!bottom.isObstacle){
+        var bottom = environment[i+'x'+(j+1)];
+        if(!bottom.isObstacle && previousAction !=ACTION.UP){
           
           actions.push(ACTION.DOWN);
         }
       }
-      if(j > 0)
+      if(i < cols - 1)
       {
-        var left = environment[i][j-1];
-        if(!left.isObstacle){
-          
+         var right = environment[(i+1)+'x'+j];
+         if(!right.isObstacle && previousAction !=ACTION.LEFT){
+          actions.push(ACTION.RIGHT);
+         }
+      }
+      
+      if(i > 0)
+      {
+        var left = environment[(i-1)+'x'+j];
+        if(!left.isObstacle && previousAction !=ACTION.RIGHT){
           actions.push(ACTION.LEFT);
         }
       }
+      
+      //console.log(actions);
       if(actions.length==0){
         return -1;
       }
@@ -70,7 +70,9 @@ class Cell {
         return actions[0];
       }
       else{
-        return actions[round(random(0, actions.length))];
+        var r = round(random(0, actions.length - 1));
+        //console.log(r);
+        return actions[r];
       }
      
     }
@@ -93,6 +95,13 @@ class Cell {
       rect(xCor, yCor, config.w-1, config.w-1);
       
     }
+    addTrail(state){
+      this.trails = state.trails;
+      if(this.trails.length == 1){
+        this.trails.pop();
+      }
+      this.trails.push(state);
+    }
     takeStep(action,environment){
       var i = this.i;
       var j = this.j;
@@ -100,28 +109,28 @@ class Cell {
       var newState = undefined;
       if(action == ACTION.UP)
       {
-          var top  = environment[i+1][j];
+          var top  = environment[(i)+'x'+(j-1)];
           if(!top.isObstacle){
             newState= top;
           }
       }
       if(action == ACTION.RIGHT)
       {
-        var right = environment[i-1][j];
+        var right = environment[(i+1)+'x'+j];
         if(!right.isObstacle){
           newState= right;
         }
       }
       if(action == ACTION.DOWN)
       {
-        var bottom = environment[i][j+1];
+        var bottom = environment[(i)+'x'+(j+1)];
         if(!bottom.isObstacle){
           newState= bottom;
         }
       }
       if(action == ACTION.LEFT)
       {
-        var left = environment[i][j-1];
+        var left = environment[(i-1)+'x'+(j)];
         if(!left.isObstacle){
           newState= left;
         }

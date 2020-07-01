@@ -169,14 +169,14 @@ var mazeData = [
       "i": 2,
       "j": 5,
       "reward": -1,
-      "isObstacle": false,
+      "isObstacle": true,
       "visited": false
     },
     {
       "i": 2,
       "j": 6,
       "reward": -1,
-      "isObstacle": false,
+      "isObstacle": true,
       "visited": false
     },
     {
@@ -234,7 +234,7 @@ var mazeData = [
       "i": 3,
       "j": 5,
       "reward": -1,
-      "isObstacle": false,
+      "isObstacle": true,
       "visited": false
     },
     {

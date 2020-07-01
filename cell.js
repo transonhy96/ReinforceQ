@@ -5,6 +5,10 @@ class Cell {
       this.reward = _reward;
       this.isObstacle = _isObstacle;
       this.visited = false;
+      this.up = 0;
+      this.down = 0;
+      this.left = 0;
+      this.right = 0;
     }
     highLight(color,isShowCoordinate=true, isCurrent=false){
   
@@ -32,21 +36,21 @@ class Cell {
       if(i < cols -1 )
       {
           var top  = environment[i+1][j];
-          if(!top.isObstacle && top!=start){
+          if(!top.isObstacle){
             actions.push(ACTION.UP);
           }
       }
       if(i > 0)
       {
          var right = environment[i-1][j];
-         if(!right.isObstacle && right!=start){
+         if(!right.isObstacle ){
           actions.push(ACTION.RIGHT);
          }
       }
       if(j < rows -1)
       {
         var bottom = environment[i][j+1];
-        if(!bottom.isObstacle && bottom!=start){
+        if(!bottom.isObstacle){
           
           actions.push(ACTION.DOWN);
         }
@@ -54,7 +58,7 @@ class Cell {
       if(j > 0)
       {
         var left = environment[i][j-1];
-        if(!left.isObstacle && left!=start){
+        if(!left.isObstacle){
           
           actions.push(ACTION.LEFT);
         }
@@ -66,7 +70,7 @@ class Cell {
         return actions[0];
       }
       else{
-        return actions[round(random(0, actions.length))];;
+        return actions[round(random(0, actions.length))];
       }
      
     }
@@ -89,4 +93,40 @@ class Cell {
       rect(xCor, yCor, config.w-1, config.w-1);
       
     }
+    takeStep(action,environment){
+      var i = this.i;
+      var j = this.j;
+     
+      var newState = undefined;
+      if(action == ACTION.UP)
+      {
+          var top  = environment[i+1][j];
+          if(!top.isObstacle){
+            newState= top;
+          }
+      }
+      if(action == ACTION.RIGHT)
+      {
+        var right = environment[i-1][j];
+        if(!right.isObstacle){
+          newState= right;
+        }
+      }
+      if(action == ACTION.DOWN)
+      {
+        var bottom = environment[i][j+1];
+        if(!bottom.isObstacle){
+          newState= bottom;
+        }
+      }
+      if(action == ACTION.LEFT)
+      {
+        var left = environment[i][j-1];
+        if(!left.isObstacle){
+          newState= left;
+        }
+      }
+      return newState;
+      
+  }
   }

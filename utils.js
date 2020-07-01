@@ -10,41 +10,6 @@ const utils = {
            }
         }
     },
-    getNextState: function(state,action,environment){
-        var i = state.i;
-        var j = state.j;
-       
-        var newState = undefined;
-        if(action == ACTION.UP)
-        {
-            var top  = environment[i+1][j];
-            if(!top.isObstacle){
-              newState= top;
-            }
-        }
-        if(action == ACTION.RIGHT)
-        {
-          var right = environment[i-1][j];
-          if(!right.isObstacle){
-            newState= right;
-          }
-        }
-        if(action == ACTION.DOWN)
-        {
-          var bottom = environment[i][j+1];
-          if(!bottom.isObstacle){
-            newState= bottom;
-          }
-        }
-        if(action == ACTION.LEFT)
-        {
-          var left = environment[i][j-1];
-          if(!left.isObstacle){
-            newState= left;
-          }
-        }
-        return newState;
-        
-    }
-      
+    
+    
 }

@@ -2,7 +2,7 @@ var cols, rows,cnv;
 var environments = [];
 var button,greeting,btnSubmit,btnStop,fps,score,fail,episode,info;
 var state; 
-var Qtable = [];
+var Qtable = {};
 var start,end,action;
 var roboto;
 var frate,scoreNum,failNum,episodeNum,totalReward,numState;
@@ -10,10 +10,10 @@ var frate,scoreNum,failNum,episodeNum,totalReward,numState;
 var maxStep;
 var episodes;
 const ACTION = {
-  UP:0,
-  DOWN:1,
-  LEFT:2,
-  RIGHT:3
+  UP:"up",
+  DOWN:"down",
+  LEFT:"left",
+  RIGHT:"right"
 }; 
 var config = {
   environmentSize : 1270,
@@ -26,7 +26,7 @@ var config = {
   speed : 1,
   loop : true,
   max_step :200,
-  totalEpisode:200,
+  totalEpisode:300,
   epsilon:1,
   max_epsilon : 1.0 ,
   min_epsilon : 0.01,
@@ -51,11 +51,6 @@ function setup() {
   maxStep = config.max_step;
   episodes = config.totalEpisode;
 
-  // init Q-table
-  // (cols * rows) states
-  // 4 action (up,down,right,left)
-
-  
   
   for (let x= 0; x < cols; x++) {
     environments[x] = new Array(rows);
@@ -64,18 +59,13 @@ function setup() {
   for(let i = 0;i<cols;i++){
     for(let j=0;j<rows;j++){
       var data = mazeData[i][j];
+      var cell = new Cell(i,j,data.reward,data.isObstacle);
       if(!data.isObstacle){
         numState++;
+        var q = new Q(i,j);
+        Qtable[i+'x'+j] = q;
       }
-      environments[i][j] = new Cell(i,j,data.reward,data.isObstacle);
-    }
-  }
-  for (let x= 0; x < numState ; x++) {
-    Qtable[x] = new Array(4);
-  }
-  for(let i = 0;i<numState;i++){
-    for(let j=0;j<4;j++){
-      Qtable[i][j] = 0;
+      environments[i][j] = cell;
     }
   }
   console.table(Qtable);
@@ -84,6 +74,7 @@ function setup() {
   end = environments[7][8];
   end.reward = 100;
   state = start;
+  state.highLight(color(0,255,0),config.offset,config.isShowCoordinate,true);
 }
 
 function draw() {
@@ -91,10 +82,10 @@ function draw() {
     episodes --;
     maxStep --;
    
-    if(episode==0){
-      noLoop();
-      // save Qtable
-    }
+    // if(episodes==0){
+    //   noLoop();
+    //   // save Qtable
+    // }
     if(maxStep==0){
       maxStep = config.max_step;
       failNum++;
@@ -110,20 +101,16 @@ function draw() {
     episode.html('Episode : ' + episodeNum);
     for(let i = 0;i<cols;i++){
       for(let j=0;j<rows;j++){
-
           environments[i][j].show(config.isShowCoordinate);
-          
       }
     }
     info.html(`State : ${numState}  \nAction: 4 (up,down,left,right)`);
     
-    let exploration_exploitation_trade_off =random(0, 1);
+    let exploration_exploitation_trade_off = random(0, 1);
     // greedy epislon
     if (exploration_exploitation_trade_off > config.epsilon){
-      
-      var max = Math.max(...Qtable[state.i * state.j]);
-      //will return 0,1,2 or 3
-      action = Qtable[state.i * state.j].indexOf(max);  // Exploit learned values
+      action = Qtable[state.i +'x'+ state.j].getAction();  // Exploit learned values
+      console.log("action:" + action);
       //console.log("Action exploit:" + action);
     }
     else{
@@ -133,8 +120,11 @@ function draw() {
       }
      // console.log("Action explore:" + action);
     }
+
+    console.log(`(${state.i},${state.j})`);
+    console.log(action);
     // take action (a) and observe the outcome stats(s') get the reward (r)
-    var nextState  = utils.getNextState(state,action,environments);
+    var nextState  = state.takeStep(action,environments);
     //console.log(nextState);
     if(nextState==undefined){
       reset();
@@ -142,11 +132,12 @@ function draw() {
     else{
     // update the q_table using Bellman equation
     // using Q(s,a) = Q(s,a) + learningRate * [R(s,a) + gamma * maxQ(s',a') - Q(s,a)]
-    let next_max = Math.max(...Qtable[nextState.i * nextState.j]);
-    let new_value = (1 - config.learningRate) * Qtable[state.i * state.j][action] + config.learningRate * (nextState.reward + config.discountRate * next_max);
-    Qtable[state.i * state.j][action] = new_value;
+    let next_max = Qtable[nextState.i +'x'+ nextState.j].max();
+    let new_value = (1 - config.learningRate) * Qtable[state.i +'x'+ state.j][action] + config.learningRate * (nextState.reward + config.discountRate * next_max);
+    console.log(new_value);
+    Qtable[state.i +'x'+ state.j][action] = new_value;
 
-    state= nextState;
+    state = nextState;
    
     state.highLight(color(0,255,0),config.offset,config.isShowCoordinate,true);
     }

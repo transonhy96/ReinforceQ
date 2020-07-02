@@ -1,9 +1,9 @@
 class Q {
-    constructor(i,j) {
-      this.up = 0;
-      this.down = 0;
-      this.left = 0;
-      this.right = 0;
+    constructor(u=0,d=0,l=0,r=0) {
+      this.up = u;
+      this.down = d;
+      this.left = l;
+      this.right = r;
     }
     max(){
         //console.log(this);

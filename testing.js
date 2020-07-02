@@ -6,7 +6,7 @@ var Qtable = {};
 var start,end,action;
 var roboto;
 var frate,scoreNum,failNum,episodeNum,totalReward,numState;
-
+var trainedData;
 var maxStep;
 var episodes;
 const ACTION = {
@@ -38,6 +38,7 @@ var config = {
 }
 function preload() {
   roboto = loadFont('assets/RobotoMono-Light.ttf');
+  trainedData = loadJSON("Qtable.json");
   if(!config.loop){
     noLoop();
   }
@@ -50,6 +51,7 @@ function setup() {
   frameRate(config.speed);
   textAlign(CENTER);
 
+  
   totalReward = 0;
   numState= 0;
   cols = rows = mazeData.length;
@@ -58,13 +60,20 @@ function setup() {
 
   epsilon = config.epsilon;
   decay_rate = config.decayRate;
+  
   for(let i = 0;i<cols;i++){
     for(let j=0;j<rows;j++){
       var data = mazeData[i][j];
       var cell = new Cell(i,j,data.reward,data.isObstacle);
       if(!data.isObstacle){
         numState++;
-        var q = new Q(i,j);
+        var Qarr = trainedData[i+'x'+j];
+        console.log(Qarr);
+        var up = Qarr[ACTION.UP];
+        var down = Qarr[ACTION.DOWN];
+        var left = Qarr[ACTION.LEFT];
+        var right = Qarr[ACTION.RIGHT];
+        var q = new Q(up,down,left,right);
         Qtable[i+'x'+j] = q;
       }
       environments[i+'x'+j] = cell;
@@ -79,9 +88,7 @@ function setup() {
   end.reward = 100;
   state = start;
   
-  if(!config.loop){
-    noLoop();
-  }
+  
 }
 
 function draw() {
@@ -93,12 +100,7 @@ function draw() {
     //   noLoop();
     //   // save Qtable
     // }
-    if(maxStep==0){
-      maxStep = config.max_step;
-      failNum++;
-      state = start;
-      totalReward=0;
-    }
+    
     background(51);
     frate = frameRate();
     fps.html('Fps : ' + parseInt(frate) + "s");
@@ -112,59 +114,17 @@ function draw() {
       }
     }
     info.html(`State : ${numState}  \nAction: 4 (up,down,left,right)`);
-    let exploration_exploitation_trade_off = random(0, 1);
-      console.log(exploration_exploitation_trade_off);
-      console.log(epsilon);
-      // greedy epislon
-      if (exploration_exploitation_trade_off >= epsilon){
-        action = Qtable[state.i +'x'+ state.j].getAction(state,environments);  // Exploit learned values
-        console.log("Exploit action:" + action);
-        //console.log("Action exploit:" + action);
-      }
-      else{
-        action = state.explore(previousAction,environments); // Randomly pick an action
-        console.log("Explore action:" + action);
-      // console.log("Action explore:" + action);
-      }
-
-      //console.log(`(${state.i},${state.j})`);
+    action = Qtable[state.i +'x'+ state.j].getAction(state,environments); 
       
-      // take action (a) and observe the outcome stats(s') get the reward (r)
       var nextState  = state.takeStep(action,environments);
-      console.log(state);
-      console.log(action);
-      console.log(nextState);
-      if(nextState==undefined){
-        reset();
-      }
-      else{
-      // update the q_table using Bellman equation
-      // using Q(s,a) = Q(s,a) + learningRate * [R(s,a) + gamma * maxQ(s',a') - Q(s,a)]
-      let next_max = Qtable[nextState.i +'x'+ nextState.j].max();
-      let new_value = (1 - config.learningRate) * Qtable[state.i +'x'+ state.j][action] + config.learningRate * (nextState.reward + config.discountRate * next_max);
-      //console.log(new_value);
-      Qtable[state.i +'x'+ state.j][action] = new_value;
-      nextState.addTrail(state);
       state = nextState;
       //previousAction = action;
-      console.log(state.trails);
       //console.log(previousAction);
       state.highLight(color(0,255,0),config.offset,config.isShowCoordinate,true);
-      epsilon  = config.min_epsilon + (config.max_epsilon - config.min_epsilon)* exp(-decay_rate * episodeNum)
       if(state == end){
-        if(maxStep == config.desireStep){
-          console.log(maxStep);
-          noLoop();
-          console.log("Found solution!");
-          alert("Found solution!");
-          saveJSON(Qtable, "Qtable.json");
-        }
         scoreNum++;
         state = start;
       }
-      
-    }
-    
 }
 function hideCoordinate(){
   config.isShowCoordinate = !config.isShowCoordinate;

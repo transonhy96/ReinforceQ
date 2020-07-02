@@ -20,8 +20,6 @@ var config = {
   w:60,
   offset:730,
   lineStroke:6,
-  allowSolve : false,
-  moreSolution:false,
   isShowCoordinate:true,
   speed : 1,
   loop : true,
@@ -38,9 +36,6 @@ var config = {
 }
 function preload() {
   roboto = loadFont('assets/RobotoMono-Light.ttf');
-  if(!config.loop){
-    noLoop();
-  }
 }
 function setup() {
 
@@ -64,8 +59,7 @@ function setup() {
       var cell = new Cell(i,j,data.reward,data.isObstacle);
       if(!data.isObstacle){
         numState++;
-        var q = new Q(i,j);
-        Qtable[i+'x'+j] = q;
+        Qtable[i+'x'+j] = new Q(i,j);
       }
       environments[i+'x'+j] = cell;
     }
@@ -74,14 +68,11 @@ function setup() {
   previousAction = "";
   start = environments['1x0'];
   end = environments['7x8'];
-  start.reward =-100;
+  start.reward =-10;
   start.highLight(color(0,255,0),config.offset,config.isShowCoordinate,true);
-  end.reward = 100;
+  end.reward = 10;
   state = start;
   
-  if(!config.loop){
-    noLoop();
-  }
 }
 
 function draw() {
@@ -89,10 +80,6 @@ function draw() {
     episodes --;
     maxStep --;
     
-    // if(episodes==0){
-    //   noLoop();
-    //   // save Qtable
-    // }
     if(maxStep==0){
       maxStep = config.max_step;
       failNum++;
